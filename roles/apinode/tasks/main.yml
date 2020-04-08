@@ -1,0 +1,85 @@
+---
+# APT ############################################################
+- name: Update packages
+  tags: apt
+  apt:
+    update_cache: yes
+
+- name: Upgrade packages
+  tags: apt
+  apt:
+    name: "*"
+    state: latest
+
+- name: Install packages
+  tags: apt
+  apt:
+    pkg:
+    - acl
+    - git
+    - apt-transport-https 
+    - ca-certificates 
+    - curl 
+    - software-properties-common
+    - sudo
+    - nano
+    - jq
+    - cmake
+    - lnav
+    - make
+    - glances
+    - python3
+    - python3-pip
+    - docker
+    - docker.io
+    
+# USERS ##########################################################
+- name: Create sysadmins group
+  tags: accounts
+  group:
+    name: sysadmins
+
+- name: Add system administrators
+  tags: accounts
+  user:
+    name: "{{ item.name }}"
+    groups: sysadmins
+    shell: "{{ item.shell | default('/bin/bash') }}"
+    append: yes
+  loop: "{{ accounts }}"
+
+- name: Install authorized_keys for accounts
+  tags: accounts
+  authorized_key:
+    user: "{{ item.name }}"
+    key: "{{ lookup('file', item.key) }}"
+  loop: "{{ accounts }}"
+  when: not ansible_check_mode
+
+- name: Setup sudo for system administrators
+  copy:
+    content: '%sysadmins ALL=(ALL) NOPASSWD: ALL'
+    dest: /etc/sudoers.d/sysadmins
+
+# DOCKER #########################################################
+- name: Download docker-compose
+  tags: docker
+  shell: 'curl -L "https://github.com/docker/compose/releases/download/1.25.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose'
+  args:
+    warn: false
+
+- name: Clone Coronavirus Tracker API
+  tags: docker
+  git:
+    repo: https://github.com/ExpDev07/coronavirus-tracker-api.git
+    dest: /usr/local/src/coronavirus-tracker-api
+
+- name: Start Docker service
+  tags: docker
+  service:
+    name: docker
+    state: started
+
+- name: Run docker-compose
+  tags: docker
+  shell: 'cd /usr/local/src/coronavirus-tracker-api/ && docker-compose up -d'

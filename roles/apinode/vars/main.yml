@@ -1,0 +1,3 @@
+accounts:
+  - name: tox
+    key: ssh/root@toxylocain
