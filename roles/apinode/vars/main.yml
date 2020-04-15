@@ -1,3 +1,6 @@
 accounts:
   - name: tox
     key: ssh/root@toxylocain
+
+api_repo: https://github.com/ExpDev07/coronavirus-tracker-api.git
+api_branch: master

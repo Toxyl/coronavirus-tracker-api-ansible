@@ -1,18 +1,18 @@
 ---
-# APT ############################################################
+# DEPENDENCIES ###################################################
 - name: Update packages
-  tags: apt
+  tags: apt,dependencies
   apt:
     update_cache: yes
 
 - name: Upgrade packages
-  tags: apt
+  tags: apt,dependencies
   apt:
     name: "*"
     state: latest
 
 - name: Install packages
-  tags: apt
+  tags: apt,dependencies
   apt:
     pkg:
     - acl
@@ -32,6 +32,12 @@
     - python3-pip
     - docker
     - docker.io
+
+- name: Download docker-compose
+  tags: dependencies
+  shell: 'curl -L "https://github.com/docker/compose/releases/download/1.25.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose'
+  args:
+    warn: false
     
 # USERS ##########################################################
 - name: Create sysadmins group
@@ -61,18 +67,31 @@
     content: '%sysadmins ALL=(ALL) NOPASSWD: ALL'
     dest: /etc/sudoers.d/sysadmins
 
-# DOCKER #########################################################
-- name: Download docker-compose
-  tags: docker
-  shell: 'curl -L "https://github.com/docker/compose/releases/download/1.25.4/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose && chmod +x /usr/local/bin/docker-compose'
+# DATA ###########################################################
+- name: Create directory for web data
+  tags: data
+  file:
+    path: /var/www/html
+    state: directory
+
+- name: Download popultion data
+  tags: data
+  shell: 'curl -L "https://www.webcodesign.de/population/" -o /var/www/html/population.json'
   args:
     warn: false
 
 - name: Clone Coronavirus Tracker API
-  tags: docker
+  tags: data
   git:
-    repo: https://github.com/ExpDev07/coronavirus-tracker-api.git
+    repo: "{{ api_repo }}"
     dest: /usr/local/src/coronavirus-tracker-api
+
+# DOCKER #########################################################
+- name: Stop any running docker-compose
+  tags: docker
+  shell: 'docker-compose down'
+  args:
+    chdir: /usr/local/src/coronavirus-tracker-api/
 
 - name: Start Docker service
   tags: docker
@@ -80,6 +99,17 @@
     name: docker
     state: started
 
+- name: Switch to another branch of the Coronavirus Tracker API
+  tags: docker
+  git:
+    repo: "{{ api_repo }}"
+    dest: /usr/local/src/coronavirus-tracker-api
+    clone: no
+    update: no
+    version: "{{ api_branch }}"
+
 - name: Run docker-compose
   tags: docker
-  shell: 'cd /usr/local/src/coronavirus-tracker-api/ && docker-compose up -d'
+  shell: 'docker-compose up -d'
+  args:
+    chdir: /usr/local/src/coronavirus-tracker-api/
